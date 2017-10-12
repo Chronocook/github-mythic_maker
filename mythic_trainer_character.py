@@ -119,7 +119,9 @@ if __name__ == '__main__':
     criterion = model.nn.CrossEntropyLoss()
 
     sample_prediction_size = 2 * settings.chunk_size
-    loss_drop_percent_threshold = 1.0
+    loss_drop_percent_threshold = 0.75
+    loss_drop_grace_iterations = 5  # Will give the model n windows before dropping the learning rate again
+    loss_drop_grace_fails = 0
     all_losses = []
     loss_accum = 0
     loss_average_last = None
@@ -135,9 +137,15 @@ if __name__ == '__main__':
                     loss_drop_percent = 100.0 * (loss_average_last - loss_average_current) / loss_average_last
                     log.out.info("Loss drop percentage over window: " + str(loss_drop_percent))
                     if loss_drop_percent < loss_drop_percent_threshold:
-                        current_learning_rate = current_learning_rate / 2.0
-                        log.out.info("Halving the learning rate to: " + str(current_learning_rate))
-                        net_optimizer = model.torch.optim.Adam(net.parameters(), lr=current_learning_rate)
+                        loss_drop_grace_fails += 1
+                        if loss_drop_grace_fails >= loss_drop_grace_iterations:
+                            current_learning_rate = current_learning_rate / 2.0
+                            loss_drop_percent_threshold = loss_drop_percent_threshold / 2.0
+                            log.out.info("Learning rate hasn't dropped much in  " + str(loss_drop_grace_iterations) +
+                                         " time windows.")
+                            log.out.info("Halving the learning rate to: " + str(current_learning_rate))
+                            log.out.info("Halving the loss drop threshold to: " + str(current_learning_rate))
+                            net_optimizer = model.torch.optim.Adam(net.parameters(), lr=current_learning_rate)
                 loss_accum = 0
                 loss_average_last = loss_average_current
                 # Report progress
