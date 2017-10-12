@@ -14,13 +14,15 @@ from torch.autograd import Variable
 
 
 class CharRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, model="gru", n_layers=1):
+    def __init__(self, input_size, hidden_size, output_size, model="gru", cuda=False,
+                 n_layers=1, dropout=0.2):
         super(CharRNN, self).__init__()
         self.model = model.lower()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.n_layers = n_layers
+        self.cuda = cuda
 
         self.encoder = nn.Embedding(input_size, hidden_size)
         if self.model == "gru":
@@ -28,6 +30,11 @@ class CharRNN(nn.Module):
         elif self.model == "lstm":
             self.rnn = nn.LSTM(hidden_size, hidden_size, n_layers)
         self.decoder = nn.Linear(hidden_size, output_size)
+        self.rnn.dropout = dropout
+        if cuda:
+            self.encoder.cuda()
+            self.rnn.cuda()
+            self.decoder.cuda()
 
     def forward(self, input_pattern, hidden):
         batch_size = input_pattern.size(0)
@@ -43,7 +50,13 @@ class CharRNN(nn.Module):
         return output, hidden
 
     def init_hidden(self, batch_size):
-        if self.model == "lstm":
-            return (Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)),
-                    Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)))
-        return Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size))
+        if self.cuda:
+            if self.model == "lstm":
+                return (Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)).cuda(),
+                        Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)).cuda())
+            return Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)).cuda()
+        else:
+            if self.model == "lstm":
+                return (Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)),
+                        Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)))
+            return Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size))

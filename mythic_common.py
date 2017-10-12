@@ -18,7 +18,6 @@ import math
 import torch
 
 
-model_file_name_pattern = "mythic_model-EE-WWWWWW_XS1_XS2_YS1_LS1"
 trainable_characters = string.printable
 num_characters = len(trainable_characters)
 
@@ -28,6 +27,7 @@ class TrainerSettings:
     args = None
     debug = False
     cuda = False
+    # multicuda = False
     model_file = None
     # For trainer
     text_file = None
@@ -37,6 +37,7 @@ class TrainerSettings:
     hidden_size = None
     layers = None
     learning_rate = None
+    dropout = None
     chunk_size = None
     batch_size = None
 
@@ -59,6 +60,7 @@ class TrainerSettings:
                      "hidden_size  : " + str(self.hidden_size) + "\n" +
                      "layers       : " + str(self.layers) + "\n" +
                      "learning_rate: " + str(self.learning_rate) + "\n" +
+                     "dropout      : " + str(self.dropout) + "\n" +
                      "print_every  : " + str(self.print_every)
                      )
 
@@ -70,6 +72,7 @@ class TrainerSettings:
         # General
         self.debug = self.args.debug
         self.cuda = self.args.cuda
+        # self.multicuda = self.args.multicuda
         self.model_file = self.args.model_file
         # For trainer
         self.text_file = self.args.text_file
@@ -79,6 +82,7 @@ class TrainerSettings:
         self.hidden_size = self.args.hidden_size
         self.layers = self.args.layers
         self.learning_rate = self.args.learning_rate
+        self.dropout = self.args.dropout
         self.chunk_size = self.args.chunk_size
         self.batch_size = self.args.batch_size
 
@@ -93,7 +97,9 @@ class TrainerSettings:
         ap.set_defaults(debug=False)
         ap.add_argument('--cuda', dest='cuda', action='store_true',
                         help='Switch to activate CUDA support.')
-        ap.set_defaults(cuda=False)
+        # ap.add_argument('--multicuda', dest='multicuda', action='store_true',
+        #                 help='Switch to activate distributed CUDA support!')
+        ap.set_defaults(multicuda=False)
         ap.add_argument('--model_file', type=str, default=None,
                         help='Torch model filename (foo.pt)', required=False)
         # For the trainer
@@ -111,9 +117,11 @@ class TrainerSettings:
                         help='Number of layers', required=False)
         ap.add_argument('--learning_rate', type=float, default=0.01,
                         help='The learning rate', required=False)
+        ap.add_argument('--dropout', type=float, default=0.2,
+                        help='The dropout rate', required=False)
         ap.add_argument('--chunk_size', type=int, default=200,
                         help='Chunk size', required=False)
-        ap.add_argument('--batch_size', type=int, default=100,
+        ap.add_argument('--batch_size', type=int, default=128,
                         help='Batch size', required=False)
         self.args = ap.parse_args()
 
@@ -125,9 +133,11 @@ class WriterSettings:
     cuda = False
     model_file = None
     # For writer
+    output_file = None
     seed_string = None
     predict_length = None
-    temperature = False
+    iterations = None
+    temperature = None
 
     def __init__(self):
         # Read the command line
@@ -145,8 +155,10 @@ class WriterSettings:
         self.cuda = self.args.cuda
         self.model_file = self.args.model_file
         # For writer
+        self.output_file = self.args.output_file
         self.seed_string = self.args.seed_string
         self.predict_length = self.args.predict_length
+        self.iterations = self.args.iterations
         self.temperature = self.args.temperature
 
 
@@ -165,10 +177,14 @@ class WriterSettings:
         ap.add_argument('--model_file', type=str, default=None,
                         help='Torch model filename (foo.pt)', required=True)
         # For the writer
+        ap.add_argument('--output_file', type=str, default=None,
+                        help='If set will write text to this file', required=False)
         ap.add_argument('--seed_string', type=str, default='A',
                         help='Initial seed string', required=False)
         ap.add_argument('--predict_length', type=int, default=200,
                         help='Length of the prediction', required=False)
+        ap.add_argument('--iterations', type=int, default=1,
+                        help='Times to loop the writing', required=False)
         ap.add_argument('--temperature', type=float, default=0.8,
                         help='Temperature setting (higher is more random)', required=False)
         self.args = ap.parse_args()

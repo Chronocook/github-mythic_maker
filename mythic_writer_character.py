@@ -11,25 +11,25 @@ from uplog import log
 import torch
 import mythic_common as common
 import mythic_model_character
+from torch.autograd import Variable
 
 
-def generate(decoder, seed_string='A', predict_length=100, temperature=0.8, cuda=False):
-    hidden = decoder.init_hidden(1)
-    prime_input = mythic_model_character.Variable(common.char_tensor(seed_string).unsqueeze(0))
-
+def generate(net, seed_string='A', predict_length=100, temperature=0.8, cuda=False):
+    hidden = net.init_hidden(1)
     if cuda:
-        hidden = hidden.cuda()
-        prime_input = prime_input.cuda()
-    predicted = seed_string
+        prime_input = Variable(common.char_tensor(seed_string).unsqueeze(0)).cuda()
+    else:
+        prime_input = Variable(common.char_tensor(seed_string).unsqueeze(0))
 
-    # Use priming string to "build up" hidden state
+    # Use seed string to "build up" hidden state
+    predicted = seed_string
     for p in range(len(seed_string) - 1):
-        _, hidden = decoder(prime_input[:, p], hidden)
+        _, hidden = net(prime_input[:, p], hidden)
 
     inp = prime_input[:, -1]
 
     for p in range(predict_length):
-        output, hidden = decoder(inp, hidden)
+        output, hidden = net(inp, hidden)
 
         # Sample from the network as a multinomial distribution
         output_dist = output.data.view(-1).div(temperature).exp()
@@ -58,11 +58,23 @@ if __name__ == '__main__':
 
     # Parse command line arguments
     log.out.info("Loading model from file: " + write_settings.model_file)
-    decoder = torch.load(write_settings.model_file)
-    predicted_string = generate(decoder,
-                                seed_string=write_settings.seed_string,
-                                predict_length=write_settings.predict_length,
-                                temperature=write_settings.temperature,
-                                cuda=write_settings.cuda)
-    log.out.info("Seed string: " + "\n" + write_settings.seed_string)
-    log.out.info("Predicted string: " + "\n" + predicted_string)
+    net = torch.load(write_settings.model_file)
+
+    # This is just to make hacking on experiments a bit easier
+    seed_string = write_settings.seed_string
+    temperature = write_settings.temperature
+
+    # Set up output file if requested
+    if write_settings.output_file is not None:
+        outfile = open(write_settings.output_file, 'w')
+
+    # Run a loop
+    for i in range(write_settings.iterations):
+        predicted_string = generate(net,
+                                    seed_string=seed_string,
+                                    predict_length=write_settings.predict_length,
+                                    temperature=temperature,
+                                    cuda=write_settings.cuda)
+        log.out.info("Seed string: " + "\n" + write_settings.seed_string)
+        log.out.info("Predicted string: " + "\n" + predicted_string)
+        outfile.write("%s\n" % predicted_string)

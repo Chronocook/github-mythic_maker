@@ -14,6 +14,7 @@ import os
 import time
 import random
 from tqdm import tqdm
+import torch.nn as nn
 import mythic_common as common
 import mythic_writer_character as writer
 import mythic_model_character as model
@@ -39,42 +40,42 @@ def random_training_set():
     return inp, target
 
 
-def ordered_training_set(start_index):
-    if start_index > (settings.text_length - settings.chunk_size):
-        log.out.warning("Requested index would blow bounds in text array, setting to random.")
-        start_index = random.randint(0, settings.text_length - settings.chunk_size)
-    inp = model.torch.LongTensor(settings.batch_size, settings.chunk_size)
-    target = model.torch.LongTensor(settings.batch_size, settings.chunk_size)
-    for bi in range(settings.batch_size):
-        # start_index = random.randint(0, settings.text_length - settings.chunk_size)
-        end_index = start_index + settings.chunk_size + 1
-        chunk = settings.text_string[start_index:end_index]
-        inp[bi] = common.char_tensor(chunk[:-1])
-        target[bi] = common.char_tensor(chunk[1:])
-    inp = model.Variable(inp)
-    target = model.Variable(target)
-    if settings.cuda:
-        inp = inp.cuda()
-        target = target.cuda()
-    return inp, target, end_index
+# def ordered_training_set(start_index):
+#     if start_index > (settings.text_length - settings.chunk_size):
+#         log.out.warning("Requested index would blow bounds in text array, setting to random.")
+#         start_index = random.randint(0, settings.text_length - settings.chunk_size)
+#     inp = model.torch.LongTensor(settings.batch_size, settings.chunk_size)
+#     target = model.torch.LongTensor(settings.batch_size, settings.chunk_size)
+#     for bi in range(settings.batch_size):
+#         # start_index = random.randint(0, settings.text_length - settings.chunk_size)
+#         end_index = start_index + settings.chunk_size + 1
+#         chunk = settings.text_string[start_index:end_index]
+#         inp[bi] = common.char_tensor(chunk[:-1])
+#         target[bi] = common.char_tensor(chunk[1:])
+#     inp = model.Variable(inp)
+#     target = model.Variable(target)
+#     if settings.cuda:
+#         inp = inp.cuda()
+#         target = target.cuda()
+#     return inp, target, end_index
 
 
 def train(input_pattern, target):
-    hidden = decoder.init_hidden(settings.batch_size)
-    if settings.cuda:
-        hidden = hidden.cuda()
-    decoder.zero_grad()
+    hidden = net.init_hidden(settings.batch_size)
+    # if settings.cuda:
+    #     hidden = hidden.cuda()
+    net.zero_grad()
     this_loss = 0
     for c in range(settings.chunk_size):
-        output, hidden = decoder(input_pattern[:, c], hidden)
+        output, hidden = net(input_pattern[:, c], hidden)
         this_loss += criterion(output.view(settings.batch_size, -1), target[:, c])
     this_loss.backward()
-    decoder_optimizer.step()
+    net_optimizer.step()
     return this_loss.data[0] / settings.chunk_size
 
 
 def save(save_filename):
-    model.torch.save(decoder, save_filename)
+    model.torch.save(net, save_filename)
     log.out.info("Saved as:" + save_filename)
 
 
@@ -94,29 +95,38 @@ if __name__ == '__main__':
     else:
         log.out.info("Using CPU")
     if settings.model_file is None:
-        save_filename = os.path.splitext(os.path.basename(settings.text_file))[0] + '.pt'
-    else:
-        save_filename = settings.model_file
+        settings.model_file = os.path.splitext(os.path.basename(settings.text_file))[0] + '.pt'
+
     settings.report()
 
     log.out.info("Read text data from: " + settings.text_file)
     log.out.info("Found " + str(settings.text_length) + " characters.")
-    # Initialize models and start training
-    decoder = model.CharRNN(
+
+    # Initialize the net
+    net = model.CharRNN(
         common.num_characters,
         settings.hidden_size,
         common.num_characters,
         model=settings.model,
         n_layers=settings.layers,
+        dropout=settings.dropout,
+        cuda=settings.cuda
     )
     # Set the optimizer
-    decoder_optimizer = model.torch.optim.Adam(decoder.parameters(), lr=settings.learning_rate)
+    net_optimizer = model.torch.optim.Adam(net.parameters(), lr=settings.learning_rate)
     # Set the loss function (criterion)
     criterion = model.nn.CrossEntropyLoss()
 
-    if settings.cuda:
-        decoder.cuda()
+    # if settings.cuda:
+    #     log.out.info("Running with CUDA support")
+    #     if settings.model == 'lstm':
+    #         print(net)
+    #     else:
+    #         net.cuda()
+    # else:
+    #     log.out.info("Running on CPUs")
 
+    sample_prediction_size = 2 * settings.chunk_size
     all_losses = []
     loss_avg = 0
     try:
@@ -127,15 +137,14 @@ if __name__ == '__main__':
                 all_losses.append(round(loss, 4))
                 percent_done = epoch / settings.epochs * 100
                 log.out.info('[%s (%d%%) %.4f]' % (common.time_since(start_time), percent_done, loss))
-                log.out.info("\n" + writer.generate(decoder, 'Wh', 100, cuda=settings.cuda))
-        log.out.info("Loss history:")
-        log.out.info(",".join(map(str, all_losses)))
+                log.out.info("\n" + writer.generate(net, 'Wh', sample_prediction_size, cuda=settings.cuda))
+        log.out.info("Loss history:" + "\n" + ",".join(map(str, all_losses)))
         log.out.info("Saving model.")
-        save()
+        save(settings.model_file)
 
     except KeyboardInterrupt:
         log.out.info("Saving model before quit.")
-        save()
+        save(settings.model_file)
 
     # Shut down and clean up
     total_time = round((time.time() - start_time), 0)
