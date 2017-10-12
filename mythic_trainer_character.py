@@ -113,28 +113,34 @@ if __name__ == '__main__':
         cuda=settings.cuda
     )
     # Set the optimizer
-    net_optimizer = model.torch.optim.Adam(net.parameters(), lr=settings.learning_rate)
+    current_learning_rate = settings.learning_rate
+    net_optimizer = model.torch.optim.Adam(net.parameters(), lr=current_learning_rate)
     # Set the loss function (criterion)
     criterion = model.nn.CrossEntropyLoss()
 
-    # if settings.cuda:
-    #     log.out.info("Running with CUDA support")
-    #     if settings.model == 'lstm':
-    #         print(net)
-    #     else:
-    #         net.cuda()
-    # else:
-    #     log.out.info("Running on CPUs")
-
     sample_prediction_size = 2 * settings.chunk_size
+    loss_drop_percent_threshold = 1.0
     all_losses = []
-    loss_avg = 0
+    loss_accum = 0
+    loss_average_last = None
     try:
         for epoch in tqdm(range(1, settings.epochs + 1)):
             loss = train(*random_training_set())
-            loss_avg += loss
+            loss_accum += loss
             if epoch % settings.print_every == 0:
                 all_losses.append(round(loss, 4))
+                loss_average_current = loss_accum / settings.print_every
+                # If your average loss hasn't dropped much half the learning rate
+                if loss_average_last is not None:
+                    loss_drop_percent = 100.0 * (loss_average_last - loss_average_current) / loss_average_last
+                    log.out.info("Loss drop percentage over window: " + str(loss_drop_percent))
+                    if loss_drop_percent < loss_drop_percent_threshold:
+                        current_learning_rate = current_learning_rate / 2.0
+                        log.out.info("Halving the learning rate to: " + str(current_learning_rate))
+                        net_optimizer = model.torch.optim.Adam(net.parameters(), lr=current_learning_rate)
+                loss_accum = 0
+                loss_average_last = loss_average_current
+                # Report progress
                 percent_done = epoch / settings.epochs * 100
                 log.out.info('[%s (%d%%) %.4f]' % (common.time_since(start_time), percent_done, loss))
                 log.out.info("\n" + writer.generate(net, 'Wh', sample_prediction_size, cuda=settings.cuda))
