@@ -120,9 +120,9 @@ if __name__ == '__main__':
     sample_prediction_size = 2 * settings.chunk_size
     all_losses = []
     # Hardcode loss inspection parameters, because hardcode is hardcore
-    loss_inspection_window = 10
-    loss_drop_percent_threshold = 20.75
-    loss_drop_grace_iterations = 3  # Will give the model n windows before dropping the learning rate again
+    loss_inspection_window = 100
+    loss_drop_percent_threshold = 0.75
+    loss_drop_grace_iterations = 5  # Will give the model n windows before dropping the learning rate again
     # Initialize running variables
     loss_accum = 0
     loss_drop_grace_fails = 0
