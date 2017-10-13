@@ -26,7 +26,7 @@ class TrainerSettings:
     # General
     args = None
     debug = False
-    cuda = False
+    cuda = None
     # multicuda = False
     model_file = None
     # For trainer
@@ -95,11 +95,14 @@ class TrainerSettings:
         ap.add_argument('--debug', dest='debug', action='store_true',
                         help='Switch to activate debug mode.')
         ap.set_defaults(debug=False)
-        ap.add_argument('--cuda', dest='cuda', action='store_true',
-                        help='Switch to activate CUDA support.')
+        # ap.add_argument('--cuda', dest='cuda', action='store_true',
+        #                 help='Switch to activate CUDA support.')
+        # ap.set_defaults(cuda=False)
+        ap.add_argument('--cuda', type=int, default=None,
+                        help='Switch to activate CUDA support on card n.', required=False)
         # ap.add_argument('--multicuda', dest='multicuda', action='store_true',
         #                 help='Switch to activate distributed CUDA support!')
-        ap.set_defaults(multicuda=False)
+        # ap.set_defaults(multicuda=False)
         ap.add_argument('--model_file', type=str, default=None,
                         help='Torch model filename (foo.pt)', required=False)
         # For the trainer
@@ -130,7 +133,7 @@ class WriterSettings:
     # General
     args = None
     debug = False
-    cuda = False
+    cuda = None
     model_file = None
     # For writer
     output_file = None
@@ -171,9 +174,11 @@ class WriterSettings:
         ap.add_argument('--debug', dest='debug', action='store_true',
                         help='Switch to activate debug mode.')
         ap.set_defaults(debug=False)
-        ap.add_argument('--cuda', dest='cuda', action='store_true',
-                        help='Switch to activate CUDA support.')
-        ap.set_defaults(cuda=False)
+        # ap.add_argument('--cuda', dest='cuda', action='store_true',
+        #                 help='Switch to activate CUDA support.')
+        # ap.set_defaults(cuda=False)
+        ap.add_argument('--cuda', type=int, default=None,
+                        help='Switch to activate CUDA support on card n.', required=False)
         ap.add_argument('--model_file', type=str, default=None,
                         help='Torch model filename (foo.pt)', required=True)
         # For the writer

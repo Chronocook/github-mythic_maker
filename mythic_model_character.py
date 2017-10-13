@@ -14,7 +14,7 @@ from torch.autograd import Variable
 
 
 class CharRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, model="gru", cuda=False,
+    def __init__(self, input_size, hidden_size, output_size, model="gru", cuda=None,
                  n_layers=1, dropout=0.2):
         super(CharRNN, self).__init__()
         self.model = model.lower()
@@ -31,7 +31,7 @@ class CharRNN(nn.Module):
             self.rnn = nn.LSTM(hidden_size, hidden_size, n_layers)
         self.decoder = nn.Linear(hidden_size, output_size)
         self.rnn.dropout = dropout
-        if cuda:
+        if cuda is not None:
             self.encoder.cuda()
             self.rnn.cuda()
             self.decoder.cuda()
@@ -49,12 +49,12 @@ class CharRNN(nn.Module):
         output = self.decoder(output.view(1, -1))
         return output, hidden
 
-    def init_hidden(self, batch_size):
-        if self.cuda:
+    def init_hidden(self, batch_size, cuda=None):
+        if cuda is not None:
             if self.model == "lstm":
-                return (Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)).cuda(),
-                        Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)).cuda())
-            return Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)).cuda()
+                return (Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size).cuda(device=cuda)),
+                        Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size).cuda(device=cuda)))
+            return Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size).cuda(device=cuda))
         else:
             if self.model == "lstm":
                 return (Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)),

@@ -14,10 +14,10 @@ import mythic_model_character
 from torch.autograd import Variable
 
 
-def generate(net, seed_string='A', predict_length=100, temperature=0.8, cuda=False):
-    hidden = net.init_hidden(1)
-    if cuda:
-        prime_input = Variable(common.char_tensor(seed_string).unsqueeze(0)).cuda()
+def generate(net, seed_string='A', predict_length=100, temperature=0.8, cuda=None):
+    hidden = net.init_hidden(1, cuda=cuda)
+    if cuda is not None:
+        prime_input = Variable(common.char_tensor(seed_string).unsqueeze(0).cuda(device=cuda))
     else:
         prime_input = Variable(common.char_tensor(seed_string).unsqueeze(0))
 
@@ -27,10 +27,8 @@ def generate(net, seed_string='A', predict_length=100, temperature=0.8, cuda=Fal
         _, hidden = net(prime_input[:, p], hidden)
 
     inp = prime_input[:, -1]
-
     for p in range(predict_length):
         output, hidden = net(inp, hidden)
-
         # Sample from the network as a multinomial distribution
         output_dist = output.data.view(-1).div(temperature).exp()
         top_i = torch.multinomial(output_dist, 1)[0]
@@ -38,11 +36,23 @@ def generate(net, seed_string='A', predict_length=100, temperature=0.8, cuda=Fal
         # Add predicted character to string and use as next input
         predicted_char = common.trainable_characters[top_i]
         predicted += predicted_char
-        inp = mythic_model_character.Variable(common.char_tensor(predicted_char).unsqueeze(0))
-        if cuda:
-            inp = inp.cuda()
+        if cuda is not None:
+            inp = mythic_model_character.Variable(common.char_tensor(predicted_char).unsqueeze(0).cuda(cuda))
+        else:
+            inp = mythic_model_character.Variable(common.char_tensor(predicted_char).unsqueeze(0))
 
     return predicted
+
+
+def load_model_to_cpu(model_fn):
+    """Loads a trained model from a checkpoint file (as created by `train.save_checkpoint`)"""
+    # Load params on CPU: https://discuss.pytorch.org/t/on-a-cpu-device-how-to-load-checkpoint-saved-on-gpu-device/349/3
+    checkpoint = torch.load(model_fn, map_location=lambda storage, loc: storage)
+    model = mythic_model_character.CharRNN()
+    state_dict = checkpoint['state_dict']
+    model.load_state_dict(state_dict)
+    model.eval()
+    return model
 
 
 if __name__ == '__main__':
@@ -55,7 +65,10 @@ if __name__ == '__main__':
         log.out.setLevel('DEBUG')
     else:
         log.out.setLevel('INFO')
-
+    if write_settings.cuda is not None:
+        log.out.info("Using CUDA on device: " + str(write_settings.cuda))
+    else:
+        log.out.info("Using CPU")
     # Parse command line arguments
     log.out.info("Loading model from file: " + write_settings.model_file)
     net = torch.load(write_settings.model_file)

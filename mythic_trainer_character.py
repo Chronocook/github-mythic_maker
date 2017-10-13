@@ -14,7 +14,7 @@ import os
 import time
 import random
 from tqdm import tqdm
-import torch.nn as nn
+import torch
 import mythic_common as common
 import mythic_writer_character as writer
 import mythic_model_character as model
@@ -34,7 +34,7 @@ def random_training_set():
         target[bi] = common.char_tensor(chunk[1:])
     inp = model.Variable(inp)
     target = model.Variable(target)
-    if settings.cuda:
+    if settings.cuda is not None:
         inp = inp.cuda()
         target = target.cuda()
     return inp, target
@@ -54,16 +54,14 @@ def random_training_set():
 #         target[bi] = common.char_tensor(chunk[1:])
 #     inp = model.Variable(inp)
 #     target = model.Variable(target)
-#     if settings.cuda:
+#     if settings.cuda is not None:
 #         inp = inp.cuda()
 #         target = target.cuda()
 #     return inp, target, end_index
 
 
 def train(input_pattern, target):
-    hidden = net.init_hidden(settings.batch_size)
-    # if settings.cuda:
-    #     hidden = hidden.cuda()
+    hidden = net.init_hidden(settings.batch_size, cuda=settings.cuda)
     net.zero_grad()
     this_loss = 0
     for c in range(settings.chunk_size):
@@ -90,8 +88,9 @@ if __name__ == '__main__':
         log.out.setLevel('DEBUG')
     else:
         log.out.setLevel('INFO')
-    if settings.cuda:
-        log.out.info("Using CUDA")
+    if settings.cuda is not None:
+        log.out.info("Using CUDA on device: " + str(settings.cuda))
+        torch.cuda.set_device(settings.cuda)
     else:
         log.out.info("Using CPU")
     if settings.model_file is None:
@@ -121,9 +120,9 @@ if __name__ == '__main__':
     sample_prediction_size = 2 * settings.chunk_size
     all_losses = []
     # Hardcode loss inspection parameters, because hardcode is hardcore
-    loss_inspection_window = 100
-    loss_drop_percent_threshold = 0.75
-    loss_drop_grace_iterations = 5  # Will give the model n windows before dropping the learning rate again
+    loss_inspection_window = 10
+    loss_drop_percent_threshold = 20.75
+    loss_drop_grace_iterations = 3  # Will give the model n windows before dropping the learning rate again
     # Initialize running variables
     loss_accum = 0
     loss_drop_grace_fails = 0
