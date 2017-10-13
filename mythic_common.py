@@ -122,7 +122,7 @@ class TrainerSettings:
                         help='The learning rate', required=False)
         ap.add_argument('--dropout', type=float, default=0.2,
                         help='The dropout rate', required=False)
-        ap.add_argument('--chunk_size', type=int, default=200,
+        ap.add_argument('--chunk_size', type=int, default=64,
                         help='Chunk size', required=False)
         ap.add_argument('--batch_size', type=int, default=128,
                         help='Batch size', required=False)

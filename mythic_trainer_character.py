@@ -27,7 +27,7 @@ def random_training_set():
     inp = model.torch.LongTensor(settings.batch_size, settings.chunk_size)
     target = model.torch.LongTensor(settings.batch_size, settings.chunk_size)
     for bi in range(settings.batch_size):
-        start_index = random.randint(0, settings.text_length - settings.chunk_size)
+        start_index = random.randint(0, settings.text_length - settings.chunk_size - 1)
         end_index = start_index + settings.chunk_size + 1
         chunk = settings.text_string[start_index:end_index]
         inp[bi] = common.char_tensor(chunk[:-1])
