@@ -14,13 +14,13 @@ class WordDataset(Dataset):
         self.chunk_size = chunk_size
         
         # read the data
-        input_file = 'data/keywell_corpus.txt'
-        fp = codecs.open(input_file, 'r', 'utf-8')
+        # input_file = 'data/keywell_corpus.txt'
+        fp = codecs.open(text_fn, 'r', 'utf-8')
         words = nltk.word_tokenize(fp.read())
         words = map(unidecode, words)
 
         # filter/preprocess words
-        words = [word.replace(',','') for word in words]
+        words = [word.replace(',', '') for word in words]
         words = [word.lower() for word in words]
         # split on hyphens
         for word in words:
@@ -39,6 +39,7 @@ class WordDataset(Dataset):
         return self.embedding.dim
     
     def get_chunk(self):
+        chunk_words = []
         got_good_words = False
         while not got_good_words:
             sta_ind = np.random.randint(0, len(self) - self.chunk_size - 1)
@@ -52,15 +53,13 @@ class WordDataset(Dataset):
         return torch.stack([self.get_chunk() for _ in range(n_chunks)])
 
 
-
 if __name__ == '__main__':
     embedding_fn = '/Users/bkeating/nltk_data/embeddings/glove/glove.6B.100d.txt'
     embedding = WordEmbedding(embedding_fn)
     dataset = WordDataset('data/keywell_corpus.txt', embedding)
 
-
     chunk = dataset.get_chunk()
-    print chunk.size()
+    print(chunk.size())
 
     chunks = dataset.get_chunks(20)
-    print chunks.size()
+    print(chunks.size())

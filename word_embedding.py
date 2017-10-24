@@ -36,8 +36,7 @@ class WordEmbedding(object):
                                      metric=metric, 
                                      algorithm=algo)
         self.nbrs.fit(self.vectors)
-    
-    
+
     @property
     def words(self):
         return self.word_to_index.keys()
